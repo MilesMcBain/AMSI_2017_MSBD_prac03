@@ -10,7 +10,7 @@ install.packages(c("rpart.plot", "randomForest"))
 ```
 
 
-```{r}
+```{r, message=FALSE}
 library(rpart)
 library(readr)
 library(knitr)
@@ -145,12 +145,12 @@ Start by replicating the above on H20. After that we will try a gradient boosted
 
 ##### Setup
 
-```{r, eval = FALSE}
+```{r, eval=FALSE}
 install.packages("h2o")
 ```
 
 ##### Load and test H2O
-```{r}
+```{r, eval=FALSE}
 library(h2o)
 localh2o <- h2o.init(min_mem_size = "512m", max_mem_size = "1g")  
 ```
@@ -160,12 +160,12 @@ You can navigate to http://127.0.0.1:54321 to check that H2O is running. This is
 Since we already have data in R we can push it to H2O without reloading it. However
 we can instruct R to load data directly to H2O without touching the R session with `h2o.uploadFile()`. This may be useful for big data files.
 
-```{r}
+```{r, eval=FALSE}
 bank_data_h2o <- as.h2o(bank_data_factor, destination_frame = "bank_data_factor")
 ```
 
 ##### Fit the Random Forest
-```{r}
+```{r, eval=FALSE}
 h2o_rf_model <- h2o.randomForest(y = "y",
                  training_frame = bank_data_h2o,
                  nfolds = 5,
@@ -181,9 +181,8 @@ h2o_rf_model <- h2o.randomForest(y = "y",
 
 ##### Viewing the summary
 A large amount of information is available for the fitted model.
-```{r}
+```{r, eval=FALSE}
 summary(h2o_rf_model)
-
 ```
 
 **Discuss**
@@ -197,7 +196,7 @@ As before, we have made artbitrary choice of model parameters. H20 provides a fu
 
 The following code will fit 3 cross-validated random forests with `mtries` = 2,4,7.
 
-```{r}
+```{r, eval=FALSE}
 h2o_grid_search <- h2o.grid("randomForest", 
          y = which((names(bank_data_h2o) == "y")),
          x = which(!(names(bank_data_h2o) == "y")),
@@ -225,7 +224,7 @@ Using the same process as above use grid search to find the best of learn rate b
 Which algorithm performs best on this dataset? You may wish to look at some of the results in the H2O flow interface. Models fit in R will be viewable there at http://127.0.0.1:54321. H2O flow will automatically produce ROC curves and other plots.
 
 #####Stop H2O
-```{r}
+```{r, eval=FALSE}
 h2o.shutdown()
 ```
 
