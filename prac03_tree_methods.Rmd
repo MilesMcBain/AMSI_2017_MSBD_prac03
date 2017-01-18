@@ -6,7 +6,7 @@ output: html_document
 ---
 #Prerequisites
 ```{r, eval=FALSE}
-install.packages(c("rpart.plot"))
+install.packages(c("rpart.plot", "randomForest"))
 ```
 
 
@@ -15,6 +15,8 @@ library(rpart)
 library(readr)
 library(knitr)
 library(rpart.plot)
+library(dplyr)
+library(randomForest)
 
 #For your laptop
 PRAC_HOME <- here::here()
@@ -29,13 +31,13 @@ In this practical we introduce tree-based approaches with CARTS on a classic dat
 ## CARTs
 
 ### Surviving the Titanic
-The passenger list of those aboard the *RMS Titanic* when disaster struck provides an interesting data set for the application of CARTs to explore relationships between survial and other passenger attributes. 
+The passenger list of those aboard the *RMS Titanic* when disaster struck provides an interesting data set for the application of CARTs to explore relationships between survival and other passenger attributes. 
 
-It's also a great opporunity to check out the analysis of this dataset on [Kaggle](https://www.kaggle.com/c/titanic/details/new-getting-started-with-r).
+It's also a great opportunity to check out the analysis of this dataset on [Kaggle](https://www.kaggle.com/c/titanic/details/new-getting-started-with-r).
 
 **Discuss:**
 
-* Based on either historical fact or Hollywood fiction, what are passenger attributes that you would expect to be associated with death or survial? 
+* Based on either historical fact or Hollywood fiction, what are passenger attributes that you would expect to be associated with death or survival? 
 
 ###Load Data
 ```{r, message=FALSE}
@@ -81,16 +83,65 @@ Experiment with adding other covariates from the dataset and observe their effec
 
 
 ### Random Forests & Gradient Boosted Trees
-The data for this analysis are real records from a telemarketing campaign run by a Spanish bank. The data contain the records for 32000 calls to banking customers. A bank may collect data like this from a 'pilot' campaign based on customers selected by stratified random sample. The data contain a 0/1 indicator variable which represents the failure/success of the customer accepting the proposed offer.
+The data for this analysis are real records from a telemarketing campaign run by a Spanish bank. The data contain the records for 32000 calls to banking customers. A bank may collect data like this from a 'pilot' campaign based on customers selected by stratified random sample. The data contain a 0/1 indicator variable which represents the failure/success of the customer accepting the proposed offer
+
 
 #### Load Data
+```{r}
+bank_data <- read_csv2(file.path(PRAC_HOME, "data/bank-additional-full.csv"),
+                       guess_max = 10000, #why guess max? try removing it to understand.
+kable(bank_data[1:10,])
+```
+
+A description of the variables in the data is avail able in [./data/bannk-additional-names.txt](./data/bannk-additional-names.txt).
 
 #### Labwork
-In the lab we can use some R
+In the lab we'll use some R packages. Code and instructions for H2O are attached below in the homework section for you to try on your own computer. 
+
+##### Data processing
+`randomForest` requires factors and numbers. By default the text variables will be considered by `read_csv` as character type, so we need to convert them to factors.
+
+```{r}
+bank_data_factor <- 
+  bank_data %>%
+  mutate_if(is.character, as.factor) %>%
+  select(-duration)
+```
+We also removed one variable: `duration` from out data set. **Why is this?**
+
+##### Fit a randomForest
+```{r}
+
+rf_model <- randomForest(formula = y ~ ., 
+                                        data = bank_data_factor,
+                                        ntree = 500,
+                                        mtry = 4)
+```
+
+Examine the `rf_model` object to see model performance measures. We can use `predict()` to get the predictions.
+ 
+Some useful plots are available with `varImpPlot(rf_model)` and `plot(rf_model)`
+
+##### Tuning a Random Forest
+The choice of parameter `mtry` was arbitrary. A more robust approach is to select it via a search of possible choices. There is a function `tuneRF()` in the `randomForest` package that is provided for just this purpose. Use it to select the best `mtry`.
+
+**Discuss**
+* Was the forest fitted with optimal `mtry` more accurate? 
+
 
 #### Homework (on your PC)
-Fit the Random Forest on H2O.
+Start by replicating the above on H20. After that we will try a gradient boosted machine.
+
+##### Setup
+
+```{r, eval = FALSE}
+install.packages("h2o")
+```
+
+
 ```{r}
+library(h2o)
+h2o.init()  
 h2o::h2o.randomForest()
 ```
 
