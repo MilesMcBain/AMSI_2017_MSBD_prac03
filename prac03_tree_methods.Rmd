@@ -19,9 +19,9 @@ library(dplyr)
 library(randomForest)
 
 #For your laptop
-PRAC_HOME <- here::here()
+#PRAC_HOME <- here::here()
 #For the lab computer
-#PRAC_HOME <- "/users/ugrad/amsi_705/MSBigData/Practicals/prac03"
+PRAC_HOME <- "/users/ugrad/amsi_705/MSBigData/Practicals/prac03"
 ```
 
 
@@ -81,15 +81,19 @@ We can also make use of `caret::confusionMatrix()` again from the previous pract
 ### Exercise
 Experiment with adding other covariates from the dataset and observe their effect on predictive accuracy and how that flows through to tree structure.
 
+**Discuss**:
 
-### Random Forests & Gradient Boosted Trees
+* What seems to have the most impact on survivorship? Does this agree with you initial guess?
+
+
+### Random Forests
 The data for this analysis are real records from a telemarketing campaign run by a Spanish bank. The data contain the records for 32000 calls to banking customers. A bank may collect data like this from a 'pilot' campaign based on customers selected by stratified random sample. The data contain a 0/1 indicator variable which represents the failure/success of the customer accepting the proposed offer
 
 
 #### Load Data
 ```{r}
 bank_data <- read_csv2(file.path(PRAC_HOME, "data/bank-additional-full.csv"),
-                       guess_max = 10000, #why guess max? try removing it to understand.
+                       guess_max = 10000) #why guess max? try removing it to understand.
 kable(bank_data[1:10,])
 ```
 
@@ -118,15 +122,22 @@ rf_model <- randomForest(formula = y ~ .,
                                         mtry = 4)
 ```
 
-Examine the `rf_model` object to see model performance measures. We can use `predict()` to get the predictions.
+Examine the `rf_model` object to see model performance measures. We can use `predict()` to get the predictions. `confusionMatrix` is an option.
  
-Some useful plots are available with `varImpPlot(rf_model)` and `plot(rf_model)`
+Some useful plots are available with `varImpPlot(rf_model)` and `plot(rf_model)`.
+
+**Discuss**:
+
+* Which are the most important variables in determining the whether the customer would accept the offer?
+* How can we make determine the effects of these variables?
+
 
 ##### Tuning a Random Forest
 The choice of parameter `mtry` was arbitrary. A more robust approach is to select it via a search of possible choices. There is a function `tuneRF()` in the `randomForest` package that is provided for just this purpose. Use it to select the best `mtry`.
 
 **Discuss**
 * Was the forest fitted with optimal `mtry` more accurate? 
+* How do you rate the final model you arrived at for the task of identifying customers to call?
 
 
 #### Homework (on your PC)
@@ -138,11 +149,84 @@ Start by replicating the above on H20. After that we will try a gradient boosted
 install.packages("h2o")
 ```
 
-
+##### Load and test H2O
 ```{r}
 library(h2o)
-h2o.init()  
-h2o::h2o.randomForest()
+localh2o <- h2o.init(min_mem_size = "512m", max_mem_size = "1g")  
+```
+You can navigate to http://127.0.0.1:54321 to check that H2O is running. This is a web interface to your H2O session. You may like to experiement performing some tasks in it instead of R.
+
+##### Load data to H2O
+Since we already have data in R we can push it to H2O without reloading it. However
+we can instruct R to load data directly to H2O without touching the R session with `h2o.uploadFile()`. This may be useful for big data files.
+
+```{r}
+bank_data_h2o <- as.h2o(bank_data_factor, destination_frame = "bank_data_factor")
+```
+
+##### Fit the Random Forest
+```{r}
+h2o_rf_model <- h2o.randomForest(y = "y",
+                 training_frame = bank_data_h2o,
+                 nfolds = 5,
+                 ntrees = 50,
+                 max_depth = 20,
+                 mtries = 4
+                 )
+```
+
+**Discuss**
+
+* What is the use of the `nfolds` argument?
+
+##### Viewing the summary
+A large amount of information is available for the fitted model.
+```{r}
+summary(h2o_rf_model)
+
+```
+
+**Discuss**
+
+* Which of these can you make an interpretation of?
+* Are they consistent with random forest in R?
+
+##### Grid search
+
+As before, we have made artbitrary choice of model parameters. H20 provides a function: `h2o.grid()` to facilitate grid search over parameter values for optimal choices. This can be quite time consuming. Note that `x` and `y` only accept column positions using this interface.
+
+The following code will fit 3 cross-validated random forests with `mtries` = 2,4,7.
+
+```{r}
+h2o_grid_search <- h2o.grid("randomForest", 
+         y = which((names(bank_data_h2o) == "y")),
+         x = which(!(names(bank_data_h2o) == "y")),
+         training_frame = bank_data_h2o,
+         nfolds = 5,
+         ntrees = 50,
+         max_depth = 20,
+         hyper_params = list(mtries = c(2,4,7))
+         )
+```
+
+Inspect `h2o_grid_search` to obtain the results. 
+
+**Discuss**
+
+* H2O reports the logloss statistic. What is the log loss? 
+* Which choice of `mtries` is optimal? How does the optimal model perform relative to the original one?
+
+#####Extension - Gradient Boosted Tree
+A gradient boosted tree can be fitted with `h2o.gbm()`. It has an interface very similar to `h2o.randomForest()`. In this context the 
+`learn_rate` parameter is the one that needs to be searched for the optimal value.
+
+Using the same process as above use grid search to find the best of learn rate between 0.01, 0.1, and 0.5. Compare the best gradient boosted tree to the best random forest using their classification performance metrics.
+
+Which algorithm performs best on this dataset? You may wish to look at some of the results in the H2O flow interface. Models fit in R will be viewable there at http://127.0.0.1:54321. H2O flow will automatically produce ROC curves and other plots.
+
+#####Stop H2O
+```{r}
+h2o.shutdown()
 ```
 
 
